@@ -15,7 +15,7 @@
 <div class="modal fade" id="modalEditar" tabindex="-1" style="z-index: 1070;">
     <div class="modal-dialog modal-dialog-centered">
         <form action="<?= \App\Core\Config::BASE_URL ?>acoes/editar" method="POST" class="modal-content shadow-lg">
-            <div class="modal-header bg-warning fw-bold">Editar Nota</div>
+            <div class="modal-header bg-warning fw-bold text-dark" style="background-color: #ffc107 !important;">Editar Nota</div>
             <div class="modal-body">
                 <input type="hidden" name="csrf_token" value="<?= \App\Core\Security::generateCsrf() ?>">
                 <input type="hidden" name="id" id="edit_id">

@@ -5,7 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($titulo ?? 'Gestão de Prestação de Contas') ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <style>.btn-xs { padding: 1px 5px; font-size: 11px; } .table-middle td { vertical-align: middle; } .card-header { font-weight: bold; }</style>
+    <style>
+        .btn-xs { padding: 1px 5px; font-size: 11px; }
+        .table-middle td { vertical-align: middle; }
+        .card-header { font-weight: bold; }
+        [data-bs-theme="dark"] .bg-warning-subtle-custom { background-color: #664d03 !important; color: #ffda6a !important; }
+        [data-bs-theme="dark"] .table thead.tr-light th,
+        [data-bs-theme="dark"] .table tfoot.tr-light th { background-color: var(--bs-tertiary-bg); }
+        [data-bs-theme="dark"] .badge.bg-light { background-color: var(--bs-tertiary-bg) !important; color: var(--bs-body-color) !important; border-color: var(--bs-border-color) !important; }
+        [data-bs-theme="dark"] .table-light { --bs-table-bg: var(--bs-tertiary-bg); --bs-table-color: var(--bs-body-color); }
+        [data-bs-theme="dark"] .table > thead.table-light > tr > th,
+        [data-bs-theme="dark"] .table > tfoot.table-light > tr > th,
+        [data-bs-theme="dark"] .table > thead.table-light > tr > td,
+        [data-bs-theme="dark"] .table > tfoot.table-light > tr > td { background-color: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+        [data-bs-theme="dark"] .modal-header.bg-dark { background-color: var(--bs-tertiary-bg) !important; }
+        [data-bs-theme="dark"] .bg-warning.fw-bold { background-color: #664d03 !important; color: #ffda6a !important; }
+        [data-bs-theme="dark"] .text-muted { color: var(--bs-secondary-color) !important; }
+        [data-bs-theme="dark"] .bg-light.text-dark.border { background-color: var(--bs-tertiary-bg) !important; color: var(--bs-body-color) !important; border-color: var(--bs-border-color) !important; }
+        [data-bs-theme="dark"] .text-success { color: var(--bs-success) !important; }
+    </style>
     <script>
         (function() {
             const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');

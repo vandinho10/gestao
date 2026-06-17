@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br" data-bs-theme="light">
+<html lang="pt-br" data-bs-theme="light" id="login-html">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,11 +10,13 @@
         .login-container { margin-top: 10%; }
         .brand-icon { font-size: 3rem; color: var(--bs-primary); margin-bottom: 1rem; }
         #theme-toggle { position: absolute; top: 1rem; right: 1rem; }
+        [data-bs-theme="dark"] .card { border-color: var(--bs-border-color); }
     </style>
     <script>
         (function() {
             const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             document.documentElement.setAttribute('data-bs-theme', theme);
+            document.getElementById('login-html').setAttribute('data-bs-theme', theme);
         })();
     </script>
 </head>

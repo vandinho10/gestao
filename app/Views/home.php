@@ -2,7 +2,7 @@
     <!-- Cadastro -->
     <div class="col-md-3">
         <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-primary text-white">Novo Lançamento</div>
+            <div class="card-header bg-primary text-white" style="background-color: var(--bs-primary) !important;">Novo Lançamento</div>
             <div class="card-body">
                 <form action="<?= \App\Core\Config::BASE_URL ?>acoes/lancar" method="POST">
                     <input type="hidden" name="csrf_token" value="<?= \App\Core\Security::generateCsrf() ?>">
