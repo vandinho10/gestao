@@ -1,0 +1,17 @@
+# Environment variables (contain sensitive data)
+.env
+.env.local
+*.local.php
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
