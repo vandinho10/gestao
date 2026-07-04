@@ -14,7 +14,7 @@
 <!-- Modal Editar -->
 <div class="modal fade" id="modalEditar" tabindex="-1" style="z-index: 1070;">
     <div class="modal-dialog modal-dialog-centered">
-        <form action="<?= \App\Core\Config::BASE_URL ?>acoes/editar" method="POST" class="modal-content shadow-lg">
+        <form action="<?= \App\Core\Config::BASE_URL ?>acoes/editar" method="POST" enctype="multipart/form-data" class="modal-content shadow-lg">
             <div class="modal-header bg-warning fw-bold text-dark" style="background-color: #ffc107 !important;">Editar Nota</div>
             <div class="modal-body">
                 <input type="hidden" name="csrf_token" value="<?= \App\Core\Security::generateCsrf() ?>">
@@ -31,12 +31,57 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="mb-3">
+                <div class="mb-2">
                     <label>Valor</label>
                     <input type="number" step="0.01" name="valor" id="edit_valor" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label>Comprovante (substituir)</label>
+                    <input type="file" name="comprovante" id="edit_comprovante" class="form-control form-control-sm" accept="image/*,.pdf" capture="environment">
+                    <input type="hidden" name="comprovante_base64" id="edit_comprovante_base64">
+                    <small class="text-muted">Deixe em branco para manter o atual</small>
                 </div>
                 <button type="submit" class="btn btn-warning w-100 fw-bold">Salvar Alterações</button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+document.getElementById('edit_comprovante').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.type === 'application/pdf') {
+        document.getElementById('edit_comprovante_base64').value = '';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            let largura = img.width;
+            let altura = img.height;
+
+            const MAX = 1920;
+            if (largura > MAX || altura > MAX) {
+                const ratio = Math.min(MAX / largura, MAX / altura);
+                largura = Math.round(largura * ratio);
+                altura = Math.round(altura * ratio);
+            }
+
+            canvas.width = largura;
+            canvas.height = altura;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, largura, altura);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            document.getElementById('edit_comprovante_base64').value = dataUrl;
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+});
+</script>

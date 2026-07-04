@@ -4,29 +4,35 @@ namespace App\Core;
 class Auth {
     public static function init() {
         if (session_status() === PHP_SESSION_NONE) {
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'domain' => getenv('GESTAO_COOKIE_DOMAIN') ?: '',
+                'secure' => true,
+                'httponly' => true,
+                'samesite' => 'Strict'
+            ]);
             session_start();
         }
     }
 
     private static function checkAuthToken($token) {
         $url = getenv('GESTAO_AUTH_API_URL') . '/auth/profile';
-        $options = [
-            'http' => [
-                'header'  => "Authorization: Bearer " . $token . "\r\n",
-                'method'  => 'GET',
-                'ignore_errors' => true,
-                'timeout' => 5
-            ]
-        ];
-        $context  = stream_context_create($options);
-        $result = @file_get_contents($url, false, $context);
 
-        if ($result) {
-            $status_line = $http_response_header[0];
-            preg_match('{HTTP\/\S*\s(\d{3})}', $status_line, $match);
-            if (isset($match[1]) && $match[1] == '200') {
-                return json_decode($result, true);
-            }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ["Authorization: Bearer " . $token],
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_SSL_VERIFYPEER => true,
+        ]);
+        $result = curl_exec($ch);
+        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpcode === 200 && $result) {
+            return json_decode($result, true);
         }
         return false;
     }

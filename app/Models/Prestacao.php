@@ -10,6 +10,42 @@ class Prestacao {
         $this->db = Database::getInstance();
     }
 
+    /**
+     * Retorna todas as prestações com totais calculados via JOIN + GROUP BY.
+     * Elimina o problema N+1 da view tabela_prestacoes.php.
+     */
+    public function getTodasComTotais($exibir_todos = false, $usuario_id = null) {
+        $teto = (float)\App\Core\Config::TETO_REFEICAO;
+        $sql = "SELECT p.*,
+                       COALESCE(SUM(CASE WHEN d.tipo = 'Refeição' THEN LEAST(d.valor, $teto) ELSE d.valor END), 0) as total,
+                       MIN(d.data_despesa) as menor_data,
+                       MAX(d.data_despesa) as maior_data
+                FROM prestacoes p
+                LEFT JOIN despesas d ON d.prestacao_id = p.id AND d.deleted_at IS NULL";
+        $params = [];
+        $conds = [];
+
+        if (!$exibir_todos) {
+            $conds[] = "(p.status NOT IN ('PAGO', 'CANCELADO') OR p.status IS NULL)";
+        }
+
+        if ($usuario_id !== null) {
+            $conds[] = "p.usuario_id = ?";
+            $params[] = $usuario_id;
+        }
+
+        if (count($conds) > 0) {
+            $sql .= " WHERE " . implode(" AND ", $conds);
+        }
+
+        $sql .= " GROUP BY p.id";
+        $sql .= " ORDER BY CASE WHEN p.status IN ('PAGO', 'CANCELADO') THEN 1 ELSE 0 END, p.numero_externo DESC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
     public function getTodas($exibir_todos = false, $usuario_id = null) {
         $sql = "SELECT * FROM prestacoes";
         $params = [];

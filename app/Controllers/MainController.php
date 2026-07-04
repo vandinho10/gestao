@@ -15,7 +15,7 @@ class MainController extends BaseController {
         $pendentes = $despesaModel->getPendentesAgrupadas($userId);
 
         $exibir_todos = isset($_GET['exibir_todos']) && $_GET['exibir_todos'] == '1';
-        $prestacoes = $prestacaoModel->getTodas($exibir_todos, $userId);
+        $prestacoes = $prestacaoModel->getTodasComTotais($exibir_todos, $userId);
 
         $this->view('home', [
             'pendentes' => $pendentes,
@@ -33,7 +33,7 @@ class MainController extends BaseController {
         $pendentes = $despesaModel->getPendentesAgrupadas(null); // all users
 
         $exibir_todos = isset($_GET['exibir_todos']) && $_GET['exibir_todos'] == '1';
-        $prestacoes = $prestacaoModel->getTodas($exibir_todos, null); // all users
+        $prestacoes = $prestacaoModel->getTodasComTotais($exibir_todos, null); // all users
 
         $this->view('admin', [
             'pendentes' => $pendentes,

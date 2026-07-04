@@ -2,20 +2,32 @@
     <thead class="table-light">
         <tr>
             <th>Valor Original</th>
+            <th>Comprovante</th>
             <th class="text-end">Ação</th>
         </tr>
     </thead>
     <tbody>
         <?php
         $total = 0;
+        $temComprovante = false;
         foreach ($itens as $d):
             $total += $d['valor'];
             $valor = number_format($d['valor'], 2, ',', '.');
+            $temComprovante = $temComprovante || !empty($d['comprovante']);
         ?>
         <tr>
             <td class='fw-bold'>R$ <?= $valor ?></td>
+            <td>
+                <?php if (!empty($d['comprovante'])): ?>
+                    <a href="<?= \App\Core\Config::BASE_URL ?>acoes/getComprovante?id=<?= $d['id'] ?>" target="_blank" class="btn btn-xs btn-outline-secondary" title="Visualizar Comprovante">👁️</a>
+                    <a href="<?= \App\Core\Config::BASE_URL ?>acoes/download?tipo=jpeg&ids=<?= $d['id'] ?>" class="btn btn-xs btn-outline-primary" title="Download JPEG">🖼️</a>
+                    <a href="<?= \App\Core\Config::BASE_URL ?>acoes/download?tipo=pdf&ids=<?= $d['id'] ?>" class="btn btn-xs btn-outline-primary" title="Download PDF">📄</a>
+                <?php else: ?>
+                    <span class="text-muted small">—</span>
+                <?php endif; ?>
+            </td>
             <td class='text-end'>
-                <button class='btn btn-xs btn-warning' onclick="editarNota(<?= $d['id'] ?>, '<?= $d['data_despesa'] ?>', '<?= $d['tipo'] ?>', '<?= $d['valor'] ?>')">Editar</button>
+                <button class='btn btn-xs btn-warning' onclick="editarNota(<?= $d['id'] ?>, '<?= \App\Core\Security::sanitize($d['data_despesa']) ?>', '<?= \App\Core\Security::sanitize($d['tipo']) ?>', '<?= $d['valor'] ?>')">Editar</button>
                 <form action='<?= \App\Core\Config::BASE_URL ?>acoes/excluirItem' method='POST' class='d-inline' onsubmit="return confirm('Tem certeza que deseja excluir esta NF? Ela ficará oculta e poderá ser restaurada pelo administrador.')">
                     <input type="hidden" name="csrf_token" value="<?= \App\Core\Security::generateCsrf() ?>">
                     <input type="hidden" name="id" value="<?= $d['id'] ?>">
@@ -27,8 +39,14 @@
     </tbody>
     <tfoot class="table-light">
         <tr>
-            <th class="fw-bold text-success">Total: R$ <?= number_format($total, 2, ',', '.') ?></th>
-            <th></th>
+            <th colspan="3">
+                <span class="fw-bold text-success">Total: R$ <?= number_format($total, 2, ',', '.') ?></span>
+                <?php if ($temComprovante): ?>
+                    <span class="float-end">
+                        <a href="<?= \App\Core\Config::BASE_URL ?>acoes/download?tipo=pdfmulti&<?= isset($itens[0]['data_despesa']) ? 'grupo_data='.$itens[0]['data_despesa'].'&grupo_tipo='.$itens[0]['tipo'] : '' ?>" class="btn btn-sm btn-outline-dark">📥 Download Todos (PDF)</a>
+                    </span>
+                <?php endif; ?>
+            </th>
         </tr>
     </tfoot>
 </table>

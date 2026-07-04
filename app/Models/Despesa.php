@@ -10,13 +10,23 @@ class Despesa {
         $this->db = Database::getInstance();
     }
 
-    public function criar($usuario_id, $data, $tipo, $valor) {
+    public function criar($usuario_id, $data, $tipo, $valor, $comprovante_blob = null, $comprovante_tipo = null) {
+        if ($comprovante_blob !== null) {
+            $stmt = $this->db->prepare("INSERT INTO despesas (usuario_id, data_despesa, tipo, valor, comprovante, comprovante_tipo) VALUES (?, ?, ?, ?, ?, ?)");
+            return $stmt->execute([$usuario_id, $data, $tipo, $valor, $comprovante_blob, $comprovante_tipo]);
+        }
         $stmt = $this->db->prepare("INSERT INTO despesas (usuario_id, data_despesa, tipo, valor) VALUES (?, ?, ?, ?)");
         return $stmt->execute([$usuario_id, $data, $tipo, $valor]);
     }
 
-    public function atualizar($id, $data, $tipo, $valor, $usuario_id = null) {
+    public function atualizar($id, $data, $tipo, $valor, $usuario_id = null, $comprovante_blob = null, $comprovante_tipo = null) {
         $filtro = $usuario_id ? " AND usuario_id = " . (int)$usuario_id : "";
+
+        if ($comprovante_blob !== null) {
+            $stmt = $this->db->prepare("UPDATE despesas SET data_despesa = ?, tipo = ?, valor = ?, comprovante = ?, comprovante_tipo = ? WHERE id = ?" . $filtro);
+            return $stmt->execute([$data, $tipo, $valor, $comprovante_blob, $comprovante_tipo, $id]);
+        }
+
         $stmt = $this->db->prepare("UPDATE despesas SET data_despesa = ?, tipo = ?, valor = ? WHERE id = ?" . $filtro);
         return $stmt->execute([$data, $tipo, $valor, $id]);
     }
@@ -36,13 +46,13 @@ class Despesa {
 
     public function getPendentesAgrupadas($usuario_id = null) {
         if ($usuario_id) {
-            $sql = "SELECT data_despesa, tipo, SUM(valor) as total, GROUP_CONCAT(id) as ids
+            $sql = "SELECT data_despesa, tipo, SUM(valor) as total, COUNT(*) as qtd, GROUP_CONCAT(id) as ids
                     FROM despesas WHERE prestacao_id IS NULL AND deleted_at IS NULL AND usuario_id = ?
                     GROUP BY data_despesa, tipo ORDER BY data_despesa ASC";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$usuario_id]);
         } else {
-            $sql = "SELECT usuario_id, data_despesa, tipo, SUM(valor) as total, GROUP_CONCAT(id) as ids
+            $sql = "SELECT usuario_id, data_despesa, tipo, SUM(valor) as total, COUNT(*) as qtd, GROUP_CONCAT(id) as ids
                     FROM despesas WHERE prestacao_id IS NULL AND deleted_at IS NULL
                     GROUP BY usuario_id, data_despesa, tipo ORDER BY usuario_id, data_despesa ASC";
             $stmt = $this->db->prepare($sql);

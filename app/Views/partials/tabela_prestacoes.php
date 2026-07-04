@@ -11,20 +11,11 @@
             <?php
             $somas_por_status = [];
             $total_geral_nao_pago = 0;
-            $despesaModel = new \App\Models\Despesa();
 
             foreach ($prestacoes as $p):
-                $resumo_itens = $despesaModel->getResumoPorPrestacao($p['id'], null); // already filtered by prestacao_id
-                $total_prestacao = 0;
-                $menor_data = null;
-                $maior_data = null;
-
-                foreach($resumo_itens as $t) {
-                    $total_prestacao += ($t['tipo'] == 'Refeição') ? min($t['total_dia_tipo'], \App\Core\Config::TETO_REFEICAO) : $t['total_dia_tipo'];
-
-                    if ($menor_data === null || $t['data_despesa'] < $menor_data) $menor_data = $t['data_despesa'];
-                    if ($maior_data === null || $t['data_despesa'] > $maior_data) $maior_data = $t['data_despesa'];
-                }
+                $total_prestacao = (float)($p['total'] ?? 0);
+                $menor_data = $p['menor_data'] ?? null;
+                $maior_data = $p['maior_data'] ?? null;
 
                 $periodo_txt = "";
                 if ($menor_data && $maior_data) {

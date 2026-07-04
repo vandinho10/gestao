@@ -21,7 +21,7 @@
             <tr>
                 <td><span class="badge bg-light text-dark border">User ID: <?= (int)$d['usuario_id'] ?></span></td>
                 <td><?= $data_despesa ?></td>
-                <td><span class="badge bg-secondary"><?= $d['tipo'] ?></span></td>
+                <td><span class="badge bg-secondary"><?= \App\Core\Security::sanitize($d['tipo']) ?></span></td>
                 <td class="fw-bold">R$ <?= $valor ?></td>
                 <td><small class="text-muted"><?= $deleted_at ?></small></td>
                 <td class="text-end">

@@ -5,13 +5,15 @@ use App\Models\Prestacao;
 use App\Core\Auth;
 use App\Core\Security;
 use App\Core\Config;
+use App\Core\UploadHandler;
+use App\Core\DownloadHandler;
 
 class AcaoController extends BaseController {
 
     public function __construct() {
         $this->checkAuth();
         // Ações que alteram dados requerem POST e CSRF
-        $acoes_get = ['getPendentes', 'getGrupos', 'getItensPrestacao', 'getDeletadas'];
+        $acoes_get = ['getPendentes', 'getGrupos', 'getItensPrestacao', 'getDeletadas', 'getComprovante', 'download'];
         $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         $action = basename($uri);
         if (isset($_GET['route'])) {
@@ -30,7 +32,30 @@ class AcaoController extends BaseController {
 
             if (in_array($tipo, Config::TIPOS_DESPESA) && $valor > 0) {
                 $model = new Despesa();
-                $model->criar(Auth::userId(), $_POST['data'], $tipo, $valor);
+
+                // Processa upload de comprovante
+                $comprovante_blob = null;
+                $comprovante_tipo = null;
+
+                // Prioriza comprovante comprimido via base64 (frontend)
+                if (!empty($_POST['comprovante_base64'])) {
+                    $dados = self::processarBase64($_POST['comprovante_base64']);
+                    if ($dados) {
+                        $comprovante_blob = $dados['blob'];
+                        $comprovante_tipo = $dados['tipo_original'];
+                    }
+                }
+
+                // Fallback: upload tradicional
+                if (!$comprovante_blob) {
+                    $comprovante = UploadHandler::processar($_FILES['comprovante'] ?? null);
+                    if ($comprovante) {
+                        $comprovante_blob = $comprovante['blob'];
+                        $comprovante_tipo = $comprovante['tipo_original'];
+                    }
+                }
+
+                $model->criar(Auth::userId(), $_POST['data'], $tipo, $valor, $comprovante_blob, $comprovante_tipo);
             }
         }
         $this->redirect($this->cleanUrl($_SERVER['HTTP_REFERER'] ?? ''));
@@ -116,7 +141,29 @@ class AcaoController extends BaseController {
                     }
 
                     if (!$bloqueado) {
-                        $despesaModel->atualizar($id, $_POST['data'], $tipo, $valor, $userId);
+                        // Processa upload de comprovante (se enviado)
+                        $comprovante_blob = null;
+                        $comprovante_tipo = null;
+
+                        // Prioriza comprovante comprimido via base64 (frontend)
+                        if (!empty($_POST['comprovante_base64'])) {
+                            $dados = self::processarBase64($_POST['comprovante_base64']);
+                            if ($dados) {
+                                $comprovante_blob = $dados['blob'];
+                                $comprovante_tipo = $dados['tipo_original'];
+                            }
+                        }
+
+                        // Fallback: upload tradicional
+                        if (!$comprovante_blob) {
+                            $comprovante = UploadHandler::processar($_FILES['comprovante'] ?? null);
+                            if ($comprovante) {
+                                $comprovante_blob = $comprovante['blob'];
+                                $comprovante_tipo = $comprovante['tipo_original'];
+                            }
+                        }
+
+                        $despesaModel->atualizar($id, $_POST['data'], $tipo, $valor, $userId, $comprovante_blob, $comprovante_tipo);
                     }
                 }
             }
@@ -259,5 +306,177 @@ class AcaoController extends BaseController {
             'prestacao_id' => $id,
             'csrf_token' => Security::generateCsrf()
         ]);
+    }
+
+    // ========================
+    // Comprovante / Download
+    // ========================
+
+    /**
+     * Serve o comprovante de uma despesa para visualização inline
+     */
+    public function getComprovante() {
+        $id = (int)($_GET['id'] ?? 0);
+        if (!$id) return;
+
+        $despesaModel = new Despesa();
+        $userId = Auth::isAdmin() ? null : Auth::userId();
+        $stmt = \App\Core\Database::getInstance()->prepare("SELECT comprovante, comprovante_tipo FROM despesas WHERE id = ?" . ($userId ? " AND usuario_id = " . (int)$userId : ""));
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+
+        if (!$row || empty($row['comprovante'])) {
+            header('HTTP/1.1 404 Not Found');
+            echo 'Comprovante não encontrado.';
+            exit;
+        }
+
+        $blob = $row['comprovante'];
+        $tipo = $row['comprovante_tipo'];
+
+        if (UploadHandler::isImagem($tipo)) {
+            header('Content-Type: image/jpeg');
+        } else {
+            header('Content-Type: application/pdf');
+        }
+        header('Content-Length: ' . strlen($blob));
+        echo $blob;
+        exit;
+    }
+
+    /**
+     * Endpoint de download unificado
+     * Parâmetros:
+     *   - tipo: jpeg | pdf | pdfmulti
+     *   - ids: IDs das despesas separados por vírgula (para download unitário/individual)
+     *   - grupo_data: data do grupo (para download agrupado)
+     *   - grupo_tipo: tipo do grupo
+     *   - grupo_ids: IDs do grupo (para download agrupado)
+     */
+    public function download() {
+        $tipoDownload = Security::sanitize($_GET['tipo'] ?? 'jpeg');
+        $ids = isset($_GET['ids']) ? array_map('intval', explode(',', $_GET['ids'])) : [];
+        $grupoData = Security::sanitize($_GET['grupo_data'] ?? '');
+        $grupoTipo = Security::sanitize($_GET['grupo_tipo'] ?? '');
+        $grupoIds = isset($_GET['grupo_ids']) ? array_map('intval', explode(',', $_GET['grupo_ids'])) : [];
+
+        $userId = Auth::isAdmin() ? null : Auth::userId();
+        $despesaModel = new Despesa();
+
+        // Se tem grupo_data e grupo_tipo, busca todas as despesas desse grupo
+        if (!empty($grupoData) && !empty($grupoTipo)) {
+            if (!empty($grupoIds)) {
+                $itens = $this->buscarDespesasPorIds($grupoIds, $userId);
+            } elseif (!empty($ids)) {
+                $itens = $this->buscarDespesasPorIds($ids, $userId);
+            } else {
+                $itens = $despesaModel->getPendentesDetalhes($grupoData, $grupoTipo, $userId);
+            }
+        } elseif (!empty($ids)) {
+            $itens = $this->buscarDespesasPorIds($ids, $userId);
+        } else {
+            header('HTTP/1.1 400 Bad Request');
+            echo 'Nenhum item especificado.';
+            exit;
+        }
+
+        if (empty($itens)) {
+            header('HTTP/1.1 404 Not Found');
+            echo 'Nenhum item encontrado.';
+            exit;
+        }
+
+        // Filtra apenas itens com comprovante
+        $itensComComprovante = array_values(array_filter($itens, function($i) {
+            return !empty($i['comprovante']);
+        }));
+
+        if (empty($itensComComprovante)) {
+            header('HTTP/1.1 404 Not Found');
+            echo 'Nenhum comprovante encontrado para download.';
+            exit;
+        }
+
+        if ($tipoDownload === 'pdfmulti' || (count($itensComComprovante) > 1 && $tipoDownload === 'pdf')) {
+            // PDF Multi-páginas
+            $pdfItens = [];
+            foreach ($itensComComprovante as $item) {
+                $pdfItens[] = [
+                    'blob' => $item['comprovante'],
+                    'data_despesa' => $item['data_despesa'],
+                    'tipo' => $item['tipo'],
+                    'id' => $item['id']
+                ];
+            }
+            $result = DownloadHandler::gerarPdfMultiPaginas($pdfItens, true);
+            if ($result) {
+                DownloadHandler::servirPdf($result['pdf'], $result['nome']);
+            }
+        } elseif ($tipoDownload === 'pdf' && count($itensComComprovante) === 1) {
+            // PDF Único
+            $item = $itensComComprovante[0];
+            if (UploadHandler::isImagem($item['comprovante_tipo'] ?? '')) {
+                $result = DownloadHandler::gerarPdfUnico($item['comprovante'], $item['data_despesa'], $item['id'], $item['tipo']);
+                if ($result) {
+                    DownloadHandler::servirPdf($result['pdf'], $result['nome']);
+                }
+            } else {
+                // Já é PDF
+                $nome = DownloadHandler::gerarNomeArquivo($item['data_despesa'], $item['id'], $item['tipo'], false, 'pdf');
+                DownloadHandler::servirPdf($item['comprovante'], $nome);
+            }
+        } else {
+            // JPEG - apenas para o primeiro item
+            $item = $itensComComprovante[0];
+            if (UploadHandler::isImagem($item['comprovante_tipo'] ?? '')) {
+                $nome = DownloadHandler::gerarNomeArquivo($item['data_despesa'], $item['id'], $item['tipo'], false, 'jpg');
+                DownloadHandler::servirJpeg($item['comprovante'], $nome);
+            } else {
+                // É PDF, servir como PDF
+                $nome = DownloadHandler::gerarNomeArquivo($item['data_despesa'], $item['id'], $item['tipo'], false, 'pdf');
+                DownloadHandler::servirPdf($item['comprovante'], $nome);
+            }
+        }
+    }
+
+    /**
+     * Processa dados de imagem em base64 (data URI) e retorna blob binário
+     */
+    private static function processarBase64($dataUri) {
+        // Extrai os dados base64: "data:image/jpeg;base64,...."
+        if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $dataUri, $matches)) {
+            $ext = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+            if (!in_array($ext, UploadHandler::TIPOS_PERMITIDOS)) {
+                return null;
+            }
+            $binario = base64_decode($matches[2], true);
+            if ($binario === false) return null;
+
+            return [
+                'blob' => $binario,
+                'tipo_original' => $ext
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * Busca despesas por IDs com comprovante
+     */
+    private function buscarDespesasPorIds($ids, $userId = null) {
+        if (empty($ids)) return [];
+        $db = \App\Core\Database::getInstance();
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT * FROM despesas WHERE id IN (" . $placeholders . ") AND comprovante IS NOT NULL";
+        $params = $ids;
+
+        if ($userId !== null) {
+            $sql .= " AND usuario_id = ?";
+            $params[] = $userId;
+        }
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
     }
 }

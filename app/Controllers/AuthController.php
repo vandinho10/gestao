@@ -17,27 +17,24 @@ class AuthController extends BaseController {
                 'password' => $_POST['password']
             ];
 
-            $options = [
-                'http' => [
-                    'header'  => "Content-type: application/json\r\n",
-                    'method'  => 'POST',
-                    'content' => json_encode($data),
-                    'ignore_errors' => true,
-                    'timeout' => 10
-                ]
-            ];
-
-            $context  = stream_context_create($options);
-            $result = @file_get_contents($url, false, $context);
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($data),
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_SSL_VERIFYPEER => true,
+            ]);
+            $result = curl_exec($ch);
+            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
 
             if ($result) {
-                $status_line = $http_response_header[0];
-                preg_match('{HTTP\/\S*\s(\d{3})}', $status_line, $match);
-                $status = $match[1] ?? '500';
-
                 $resp = json_decode($result, true);
 
-                if ($status == '200' && isset($resp['token'])) {
+                if ($httpcode === 200 && isset($resp['token'])) {
                     $_SESSION['logado'] = true;
                     $_SESSION['token'] = $resp['token'];
 

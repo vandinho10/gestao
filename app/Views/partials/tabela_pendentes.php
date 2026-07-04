@@ -34,7 +34,7 @@
                 <?php endif; ?>
             </div>
             <table class="table table-sm table-hover table-middle">
-                <thead class="table-light"><tr><th width="30"><input type="checkbox" id="selectAll"></th><?= $isAdminView ? '<th>Usuário</th>' : '' ?><th>Data</th><th>Tipo</th><th>Total c/ Teto</th><th class="text-end">Ação</th></tr></thead>
+                <thead class="table-light"><tr><th width="30"><input type="checkbox" id="selectAll"></th><?= $isAdminView ? '<th>Usuário</th>' : '' ?><th>Data</th><th>Tipo</th><th>Qtd</th><th>Total c/ Teto</th><th class="text-end">Ação</th></tr></thead>
                 <tbody>
                     <?php
                     $soma_pendentes_exibido = 0;
@@ -46,13 +46,14 @@
                         $soma_pendentes_real += $real;
                         $alerta = ($real > $exibido) ? " <span class='badge bg-danger' title='Real: R$ ".number_format($real,2,',','.')."'>⚠️ Limite</span>" : "";
                     ?>
-                    <tr>
+                    <tr data-total-exibido="<?= $exibido ?>" data-total-real="<?= $real ?>">
                         <td><input type="checkbox" name="grupos_ids[]" value="<?= $g['ids'] ?>" class="chkItem"></td>
                         <?php if ($isAdminView): ?>
-                            <td><span class="badge bg-light text-dark border">User ID: <?= $g['usuario_id'] ?: 'Desconhecido' ?></span></td>
+                            <td><span class="badge bg-light text-dark border">User ID: <?= \App\Core\Security::sanitize($g['usuario_id'] ?? 'Desconhecido') ?></span></td>
                         <?php endif; ?>
                         <td><?= date('d/m/Y', strtotime($g['data_despesa'])) ?></td>
-                        <td><span class="badge bg-secondary"><?= $g['tipo'] ?></span></td>
+                        <td><span class="badge bg-secondary"><?= \App\Core\Security::sanitize($g['tipo']) ?></span></td>
+                        <td class="text-center"><?= $g['qtd'] ?></td>
                         <td><span class="fw-bold">R$ <?= number_format($exibido, 2, ',', '.') ?></span><?= $alerta ?></td>
                         <td class="text-end"><button type="button" class="btn btn-xs btn-outline-info" onclick="abrirListagemPendentes('<?= $g['data_despesa'] ?>', '<?= $g['tipo'] ?>'<?= $isAdminView ? ", '{$g['usuario_id']}'" : '' ?>)">Ver Notas</button></td>
                     </tr>
@@ -60,16 +61,73 @@
                 </tbody>
                 <tfoot class="table-light">
                     <tr>
-                        <th colspan="<?= $isAdminView ? '4' : '3' ?>" class="text-end">Total Pendentes:</th>
-                        <th colspan="2" class="text-success fw-bold">
-                            R$ <?= number_format($soma_pendentes_exibido, 2, ',', '.') ?>
-                            <?php if($soma_pendentes_real > $soma_pendentes_exibido): ?>
-                                <br><small class="text-muted fw-normal">Real acumulado: R$ <?= number_format($soma_pendentes_real, 2, ',', '.') ?></small>
-                            <?php endif; ?>
-                        </th>
-                    </tr>
+                        <th colspan="<?= $isAdminView ? '5' : '4' ?>" class="text-end">Total Pendentes:</th>
+                <th colspan="2" class="text-success fw-bold">
+                    R$ <?= number_format($soma_pendentes_exibido, 2, ',', '.') ?>
+                    <?php if($soma_pendentes_real > $soma_pendentes_exibido): ?>
+                        <br><small class="text-muted fw-normal">Real acumulado: R$ <?= number_format($soma_pendentes_real, 2, ',', '.') ?></small>
+                    <?php endif; ?>
+                </th>
+            </tr>
+            <tr id="somaSelecionadosRow" style="display:none;">
+                <th colspan="<?= $isAdminView ? '5' : '4' ?>" class="text-end border-top">Total Selecionado:</th>
+                <th colspan="2" class="text-info fw-bold border-top">
+                    R$ <span id="somaSelecionadosExibido">0,00</span>
+                    <br><small class="text-muted fw-normal" id="somaSelecionadosReal" style="display:none;">Real: R$ <span>0,00</span></small>
+                </th>
+            </tr>
                 </tfoot>
             </table>
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chkItems = document.querySelectorAll('.chkItem');
+    const somaRow = document.getElementById('somaSelecionadosRow');
+    const spanExibido = document.getElementById('somaSelecionadosExibido');
+    const spanReal = document.getElementById('somaSelecionadosReal');
+
+    function atualizarSoma() {
+        let totalExibido = 0;
+        let totalReal = 0;
+
+        chkItems.forEach(function(chk) {
+            if (chk.checked) {
+                const tr = chk.closest('tr');
+                const exibido = parseFloat(tr.dataset.totalExibido || 0);
+                const real = parseFloat(tr.dataset.totalReal || 0);
+                totalExibido += exibido;
+                totalReal += real;
+            }
+        });
+
+        if (totalExibido > 0) {
+            somaRow.style.display = '';
+            spanExibido.textContent = totalExibido.toFixed(2).replace('.', ',');
+            if (totalReal > totalExibido) {
+                spanReal.style.display = '';
+                spanReal.querySelector('span').textContent = totalReal.toFixed(2).replace('.', ',');
+            } else {
+                spanReal.style.display = 'none';
+            }
+        } else {
+            somaRow.style.display = 'none';
+        }
+    }
+
+    chkItems.forEach(function(chk) {
+        chk.addEventListener('change', atualizarSoma);
+    });
+
+    // Select all
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            chkItems.forEach(function(c) { c.checked = selectAll.checked; });
+            atualizarSoma();
+        });
+    }
+});
+</script>

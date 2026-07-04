@@ -16,19 +16,16 @@ if (file_exists($envFile)) {
     }
 }
 
-require_once __DIR__ . '/app/Core/Config.php';
-require_once __DIR__ . '/app/Core/Database.php';
-require_once __DIR__ . '/app/Core/Security.php';
-require_once __DIR__ . '/app/Core/Auth.php';
-require_once __DIR__ . '/app/Core/Router.php';
-
-require_once __DIR__ . '/app/Models/Despesa.php';
-require_once __DIR__ . '/app/Models/Prestacao.php';
-
-require_once __DIR__ . '/app/Controllers/BaseController.php';
-require_once __DIR__ . '/app/Controllers/AuthController.php';
-require_once __DIR__ . '/app/Controllers/MainController.php';
-require_once __DIR__ . '/app/Controllers/AcaoController.php';
+// Autoloader PSR-4-like para namespace App\
+spl_autoload_register(function ($class) {
+    $prefix = 'App\\';
+    $base_dir = __DIR__ . '/app/';
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) return;
+    $relative_class = substr($class, $len);
+    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+    if (file_exists($file)) require $file;
+});
 
 $router = new \App\Core\Router();
 
@@ -75,5 +72,7 @@ $router->get('/acoes/getPendentes', 'AcaoController@getPendentes');
 $router->get('/acoes/getDeletadas', 'AcaoController@getDeletadas');
 $router->get('/acoes/getGrupos', 'AcaoController@getGrupos');
 $router->get('/acoes/getItensPrestacao', 'AcaoController@getItensPrestacao');
+$router->get('/acoes/getComprovante', 'AcaoController@getComprovante');
+$router->get('/acoes/download', 'AcaoController@download');
 
 $router->dispatch();
